@@ -29,12 +29,8 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  final ConectifyClient _client = ConectifyClient(
-    baseUrl: 'https://fakestoreapi.com',
-  );
-  
-  List<Map<String, dynamic>> _products = [];
-  List<String> _categories = [];
+  List<Product> _products = [];
+  List<Category> _categories = [];
   bool _isLoading = false;
   String? _errorMessage;
   String? _selectedCategory;
@@ -53,16 +49,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
     });
 
     try {
-      final List<dynamic> products;
-      
+      final List<Product> products;
+
       if (_selectedCategory != null) {
-        products = await _client.getList('/products/category/$_selectedCategory');
+        products = await Conectify.getProductsByCategory(_selectedCategory!);
       } else {
-        products = await _client.getList('/products');
+        final data = await Conectify.getProducts();
+        products = data;
       }
 
       setState(() {
-        _products = products.map((p) => p as Map<String, dynamic>).toList();
+        _products = products;
         _isLoading = false;
       });
     } catch (e) {
@@ -75,9 +72,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final categories = await _client.getList('/products/categories');
+      final categories = await Conectify.getCategories();
       setState(() {
-        _categories = categories.map((c) => c.toString()).toList();
+        _categories = categories;
       });
     } catch (e) {
       debugPrint('Error al cargar categorías: $e');
@@ -93,7 +90,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<void> _loadProductDetails(int productId) async {
     try {
-      final product = await _client.get('/products/$productId');
+      final product = await Conectify.getProduct(productId);
       if (mounted) {
         Navigator.push(
           context,
@@ -104,16 +101,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar producto: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar producto: $e')));
       }
     }
   }
 
   @override
   void dispose() {
-    _client.close();
+    Conectify.close();
     super.dispose();
   }
 
@@ -143,7 +140,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 children: [
                   _buildCategoryChip('Todos', null),
                   ..._categories.map(
-                    (category) => _buildCategoryChip(category, category),
+                    (category) =>
+                        _buildCategoryChip(category.name, category.name),
                   ),
                 ],
               ),
@@ -153,43 +151,41 @@ class _ProductsScreenState extends State<ProductsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadProducts,
-                              child: const Text('Reintentar'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red[300],
                         ),
-                      )
-                    : _products.isEmpty
-                        ? const Center(
-                            child: Text('No hay productos disponibles'),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadProducts,
-                            child: ListView.builder(
-                              itemCount: _products.length,
-                              itemBuilder: (context, index) {
-                                final product = _products[index];
-                                return _buildProductCard(product);
-                              },
-                            ),
-                          ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadProducts,
+                          child: const Text('Reintentar'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _products.isEmpty
+                ? const Center(child: Text('No hay productos disponibles'))
+                : RefreshIndicator(
+                    onRefresh: _loadProducts,
+                    child: ListView.builder(
+                      itemCount: _products.length,
+                      itemBuilder: (context, index) {
+                        final product = _products[index];
+                        return _buildProductCard(product);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -210,20 +206,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    final title = product['title'] as String? ?? 'Sin título';
-    final price = product['price'] as num? ?? 0.0;
-    final category = product['category'] as String? ?? 'Sin categoría';
-    final image = product['image'] as String? ?? '';
-    final rating = product['rating'] as Map<String, dynamic>?;
-    final rate = rating?['rate'] as num? ?? 0.0;
-    final count = rating?['count'] as int? ?? 0;
-    final productId = product['id'] as int? ?? 0;
-
+  Widget _buildProductCard(Product product) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
-        onTap: () => _loadProductDetails(productId),
+        onTap: () => _loadProductDetails(product.id),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
@@ -233,7 +220,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
-                  image,
+                  product.image,
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
@@ -254,7 +241,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      product.title,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -264,17 +251,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      category,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      product.category,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
-                          '\$${price.toStringAsFixed(2)}',
+                          '\$${product.price.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -291,7 +275,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${rate.toStringAsFixed(1)} ($count)',
+                              '${product.rating.rate.toStringAsFixed(1)} (${product.rating.count})',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -313,25 +297,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
 }
 
 class ProductDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> product;
+  final Product product;
 
   const ProductDetailScreen({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
-    final title = product['title'] as String? ?? 'Sin título';
-    final price = product['price'] as num? ?? 0.0;
-    final description = product['description'] as String? ?? 'Sin descripción';
-    final category = product['category'] as String? ?? 'Sin categoría';
-    final image = product['image'] as String? ?? '';
-    final rating = product['rating'] as Map<String, dynamic>?;
-    final rate = rating?['rate'] as num? ?? 0.0;
-    final count = rating?['count'] as int? ?? 0;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle del Producto'),
-      ),
+      appBar: AppBar(title: const Text('Detalle del Producto')),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,14 +315,11 @@ class ProductDetailScreen extends StatelessWidget {
               height: 300,
               color: Colors.grey[200],
               child: Image.network(
-                image,
+                product.image,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return const Center(
-                    child: Icon(
-                      Icons.image_not_supported,
-                      size: 64,
-                    ),
+                    child: Icon(Icons.image_not_supported, size: 64),
                   );
                 },
               ),
@@ -361,7 +331,7 @@ class ProductDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    product.title,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -380,7 +350,7 @@ class ProductDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          category,
+                          product.category,
                           style: TextStyle(
                             color: Colors.blue[900],
                             fontWeight: FontWeight.w500,
@@ -394,7 +364,7 @@ class ProductDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$${price.toStringAsFixed(2)}',
+                        '\$${product.price.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -403,14 +373,10 @@ class ProductDetailScreen extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          Icon(
-                            Icons.star,
-                            color: Colors.amber[600],
-                            size: 24,
-                          ),
+                          Icon(Icons.star, color: Colors.amber[600], size: 24),
                           const SizedBox(width: 4),
                           Text(
-                            rate.toStringAsFixed(1),
+                            product.rating.rate.toStringAsFixed(1),
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -418,7 +384,7 @@ class ProductDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '($count reseñas)',
+                            '(${product.rating.count} reseñas)',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[600],
@@ -431,18 +397,12 @@ class ProductDetailScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   const Text(
                     'Descripción',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
+                    product.description,
+                    style: const TextStyle(fontSize: 16, height: 1.5),
                   ),
                 ],
               ),
