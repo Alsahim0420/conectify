@@ -25,13 +25,14 @@ Paquete Flutter para realizar conexiones HTTP **sin dependencias externas**, uti
 
 ## Instalación
 
-Agrega `conectify` a tu archivo `pubspec.yaml`:
+Agrega `conectify` a tu archivo `pubspec.yaml` desde GitHub:
 
 ```yaml
 dependencies:
   conectify:
     git:
-      url: https://github.com/tu-usuario/conectify.git
+      url: https://github.com/tu-usuario/conectify-FASE3.git
+      ref: main  # o la rama/etiqueta que quieras usar
 ```
 
 Luego ejecuta:
