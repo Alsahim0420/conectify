@@ -1,25 +1,16 @@
 # Conectify
 
-Paquete Flutter para realizar conexiones HTTP **sin dependencias externas**, utilizando únicamente
-`dart:io` y `dart:convert`.
-
----
-
-## Demostración
-
-[![Demo](https://res.cloudinary.com/panmecar/image/upload/v1769177870/Grabaci%C3%B3n-de-pantalla-2026-01-23-a-la_s_-8.45.49_a.m._jcityk.gif)](https://res.cloudinary.com/panmecar/video/upload/v1769175981/Grabaci%C3%B3n_de_pantalla_2026-01-23_a_la_s_8.45.49_a.m._c3x6do.mov)
-
+Paquete Flutter para consumir la **Fake Store API** de manera sencilla y directa, sin necesidad de construir URLs o manejar detalles HTTP.
 
 ---
 
 ## Características
 
-- Realizar solicitudes HTTP **GET, POST, PUT, DELETE**
-- **Sin dependencias externas** (usa solo `dart:io`)
-- Manejo de errores
-- Fácil de usar y bien documentado
-- Nombres genéricos que funcionan con cualquier API REST
-- Ligero y reutilizable
+-  **API de alto nivel** - Métodos específicos 
+-  **Sin dependencias externas** - Usa solo 
+-  **Modelos tipados** - Product, Category, User con type safety
+-  **Fácil de usar** - Una línea de código para obtener datos
+-  **Manejo de errores** - Excepciones claras y descriptivas
 
 ---
 
@@ -51,152 +42,205 @@ flutter pub get
 import 'package:conectify/conectify.dart';
 ```
 
-### Crear una instancia del cliente
+### Obtener todos los productos
 
 ```dart
-final client = ConectifyClient(
-  baseUrl: 'https://api.ejemplo.com',
+final products = await Conectify.getProducts();
+for (var product in products) {
+  print('${product.title} - \$${product.price}');
+}
+```
+
+### Obtener un producto específico
+
+```dart
+final product = await Conectify.getProduct(1);
+print(product.title);
+print(product.description);
+print(product.rating.rate);
+```
+
+### Obtener productos por categoría
+
+```dart
+final electronics = await Conectify.getProductsByCategory('electronics');
+for (var product in electronics) {
+  print(product.title);
+}
+```
+
+### Obtener todas las categorías
+
+```dart
+final categories = await Conectify.getCategories();
+for (var category in categories) {
+  print(category.name);
+}
+```
+
+### Obtener usuarios
+
+```dart
+// Todos los usuarios
+final users = await Conectify.getUsers();
+
+// Un usuario específico
+final user = await Conectify.getUser(1);
+print(user.name.fullName);
+print(user.email);
+print(user.address.city);
+```
+
+### Crear, actualizar y eliminar productos
+
+```dart
+// Crear un producto
+final newProduct = Product(
+  id: 0,
+  title: 'Nuevo Producto',
+  price: 99.99,
+  description: 'Descripción del producto',
+  category: 'electronics',
+  image: 'https://example.com/image.jpg',
+  rating: const Rating(rate: 4.5, count: 100),
 );
+
+final created = await Conectify.createProduct(newProduct);
+
+// Actualizar un producto
+final updated = Product(
+  id: created.id,
+  title: 'Producto Actualizado',
+  price: created.price,
+  description: created.description,
+  category: created.category,
+  image: created.image,
+  rating: created.rating,
+);
+
+await Conectify.updateProduct(updated);
+
+// Eliminar un producto
+await Conectify.deleteProduct(created.id);
+```
+
+### Cerrar la conexión
+
+```dart
+Conectify.close(); // útil para liberar recursos
 ```
 
 ---
 
-### Realizar una solicitud GET
+## Modelos
+
+### Product
 
 ```dart
-try {
-  final data = await client.get('/endpoint');
-  print(data);
-} catch (e) {
-  print('Error: $e');
+class Product {
+  final int id;
+  final String title;
+  final double price;
+  final String description;
+  final String category;
+  final String image;
+  final Rating rating;
+}
+```
+
+### Category
+
+```dart
+class Category {
+  final String name;
+}
+```
+
+### User
+
+```dart
+class User {
+  final int id;
+  final String email;
+  final String username;
+  final Name name;
+  final Address address;
+  final String phone;
 }
 ```
 
 ---
 
-### Realizar una solicitud GET con parámetros de consulta
+## Ejemplo Completo
 
 ```dart
-try {
-  final data = await client.get(
-    '/endpoint',
-    queryParams: {
-      'limit': '10',
-      'offset': '0',
-    },
-  );
-  print(data);
-} catch (e) {
-  print('Error: $e');
+import 'package:flutter/material.dart';
+import 'package:conectify/conectify.dart';
+
+void main() {
+  runApp(const MyApp());
 }
-```
 
----
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
-### Realizar una solicitud GET que retorna una lista
-
-```dart
-try {
-  final list = await client.getList('/endpoint');
-  for (final item in list) {
-    print(item);
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: ProductsScreen(),
+    );
   }
-} catch (e) {
-  print('Error: $e');
 }
-```
 
----
-
-### Realizar una solicitud POST
-
-```dart
-try {
-  final data = await client.post(
-    '/endpoint',
-    {
-      'key': 'value',
-      'otra_key': 'otro_valor',
-    },
-  );
-  print(data);
-} catch (e) {
-  print('Error: $e');
+class ProductsScreen extends StatefulWidget {
+  @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
 }
-```
 
----
+class _ProductsScreenState extends State<ProductsScreen> {
+  List<Product> _products = [];
+  bool _isLoading = true;
 
-### Realizar una solicitud PUT
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
 
-```dart
-try {
-  final data = await client.put(
-    '/endpoint',
-    {
-      'key': 'nuevo_valor',
-    },
-  );
-  print(data);
-} catch (e) {
-  print('Error: $e');
+  Future<void> _loadProducts() async {
+    try {
+      final products = await Conectify.getProducts();
+      setState(() {
+        _products = products;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView.builder(
+      itemCount: _products.length,
+      itemBuilder: (context, index) {
+        final product = _products[index];
+        return ListTile(
+          title: Text(product.title),
+          subtitle: Text('\$${product.price}'),
+          leading: Image.network(product.image),
+        );
+      },
+    );
+  }
 }
-```
-
----
-
-### Realizar una solicitud DELETE
-
-```dart
-try {
-  final data = await client.delete('/endpoint');
-  print(data);
-} catch (e) {
-  print('Error: $e');
-}
-```
-
----
-
-### Cerrar el cliente
-
-Cuando hayas terminado de usar el cliente, es recomendable cerrarlo:
-
-```dart
-client.close();
-```
-
----
-
-## Ejemplo con Fake Store API
-
-Ejemplo completo usando la [Fake Store API](https://fakestoreapi.com/):
-
-```dart
-final client = ConectifyClient(
-  baseUrl: 'https://fakestoreapi.com',
-);
-
-// Obtener lista de productos
-final products = await client.getList('/products');
-
-// Obtener un producto específico
-final product = await client.get('/products/1');
-
-// Obtener productos por categoría
-final electronics =
-    await client.getList('/products/category/electronics');
-
-// Obtener todas las categorías
-final categories = await client.getList('/products/categories');
-```
-
-### Ejecutar el ejemplo
-
-```bash
-cd example
-flutter pub get
-flutter run
 ```
 
 ---
@@ -207,26 +251,47 @@ Todas las operaciones pueden lanzar excepciones. Se recomienda manejarlas adecua
 
 ```dart
 try {
-  final data = await client.get('/endpoint');
-  // Usar los datos
+  final products = await Conectify.getProducts();
+  // Usar los productos
 } catch (e) {
-  print('Error: $e');
+  print('Error al cargar productos: $e');
+  // Mostrar mensaje al usuario
 }
 ```
 
 ---
 
-## Ventajas
+## API Completa
 
-- **Sin dependencias externas**
-- **Ligero**
-- **Genérico**
-- **API clara y simple**
-- Ideal para proyectos que buscan control total sobre las conexiones HTTP
+### Productos
+
+- `Conectify.getProducts()` - Obtiene todos los productos
+- `Conectify.getProduct(int id)` - Obtiene un producto por ID
+- `Conectify.getProductsByCategory(String category)` - Filtra por categoría
+- `Conectify.createProduct(Product product)` - Crea un nuevo producto
+- `Conectify.updateProduct(Product product)` - Actualiza un producto
+- `Conectify.deleteProduct(int id)` - Elimina un producto
+
+### Categorías
+
+- `Conectify.getCategories()` - Obtiene todas las categorías
+
+### Usuarios
+
+- `Conectify.getUsers()` - Obtiene todos los usuarios
+- `Conectify.getUser(int id)` - Obtiene un usuario por ID
+
+### Utilidades
+
+- `Conectify.close()` - Cierra la conexión HTTP
 
 ---
 
-## Licencia
+## Ventajas
 
-Este proyecto está bajo la **Licencia MIT**.  
-Consulta el archivo `LICENSE` para más detalles.
+-  **API específica** - No necesitas construir URLs manualmente
+-  **Type safety** - Modelos tipados para todos los datos
+-  **Sin dependencias externas** - Solo usa `dart:io`
+-  **Fácil de usar** - Métodos intuitivos y claros
+-  **Bien documentado** - Código limpio y comentado
+
