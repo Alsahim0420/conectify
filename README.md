@@ -303,5 +303,4 @@ Captura de la ejecución de los tests:
 
 ![Captura de los tests](https://res.cloudinary.com/panmecar/image/upload/v1769847409/test_fase3/Captura_de_pantalla_2026-01-31_a_la_s_3.16.33_a.m._okyn9d.png)
 
-> Coloca tu imagen en `docs/captura-tests.png` (o actualiza la ruta arriba). Para generar cobertura: `./script/coverage.sh` (paquete) o `cd example && ./script/coverage.sh` (app de ejemplo).
 
