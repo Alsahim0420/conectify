@@ -22,7 +22,15 @@ class MyApp extends StatelessWidget {
 }
 
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({super.key});
+  const ProductsScreen({
+    super.key,
+    this.initialProducts,
+    this.initialCategories,
+  });
+
+  /// Datos iniciales para tests; si se pasan, no se llama a la API al iniciar.
+  final List<Product>? initialProducts;
+  final List<Category>? initialCategories;
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -38,8 +46,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProducts();
-    _loadCategories();
+    if (widget.initialProducts != null) {
+      _products = widget.initialProducts!;
+      _categories = widget.initialCategories ?? [];
+      _isLoading = false;
+    } else {
+      _loadProducts();
+      _loadCategories();
+    }
   }
 
   Future<void> _loadProducts() async {

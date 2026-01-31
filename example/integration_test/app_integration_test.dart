@@ -76,12 +76,7 @@ void main() {
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Verificar que existe el contenedor de categorías o la lista
-
-      find.byType(ListView).evaluate().isNotEmpty ||
-          find.byType(FilterChip).evaluate().isNotEmpty;
-
-      // Puede o no tener categorías dependiendo del estado de carga
+      // Verificar que la app muestra Scaffold (lista o chips según estado de carga)
       expect(find.byType(Scaffold), findsOneWidget);
     });
 

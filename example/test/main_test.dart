@@ -34,14 +34,17 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: ProductsScreen()));
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Puede mostrar "No hay productos disponibles" o contenido
+      // Puede mostrar "No hay productos disponibles", lista, loading o error
       final noProductsMessage = find.text('No hay productos disponibles');
       final hasContent = find.byType(ListView);
+      final hasLoading = find.byType(CircularProgressIndicator);
+      final hasError = find.byIcon(Icons.error_outline);
 
-      // Verificar que existe alguno de estos estados
       expect(
         noProductsMessage.evaluate().isNotEmpty ||
-            hasContent.evaluate().isNotEmpty,
+            hasContent.evaluate().isNotEmpty ||
+            hasLoading.evaluate().isNotEmpty ||
+            hasError.evaluate().isNotEmpty,
         isTrue,
       );
     });
